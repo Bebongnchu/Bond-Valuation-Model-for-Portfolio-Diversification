@@ -1,49 +1,91 @@
-# History files
-.Rhistory
-.Rapp.history
+# Extended Bond Valuation and Decision-Making Model in R
 
-# Session Data files
-.RData
-.RDataTmp
+# Load necessary library
+library(stats)
 
-# User-specific files
-.Ruserdata
+# Function to calculate bond price
+bond_price <- function(face_value, coupon_rate, years_to_maturity, yield, settlement_period_fraction, coupons_per_year = 2) {
+  periods <- years_to_maturity * coupons_per_year
+  coupon_payment <- face_value * (coupon_rate / coupons_per_year)
+  discount_rate <- yield / coupons_per_year
+  
+  # Calculate present value of coupon payments
+  coupon_pv <- sum(coupon_payment / ((1 + discount_rate)^(1:periods)))
+  
+  # Calculate present value of face value
+  face_value_pv <- face_value / ((1 + discount_rate)^periods)
+  
+  # Calculate accrued interest
+  accrued_interest <- coupon_payment * settlement_period_fraction
+  
+  # Calculate clean price (present value of future cash flows minus accrued interest)
+  clean_price <- coupon_pv + face_value_pv - accrued_interest
+  
+  return(list(price = clean_price, accrued_interest = accrued_interest))
+}
 
-# Example code in package build process
-*-Ex.R
+# Function to calculate bond yield to maturity (YTM)
+bond_ytm <- function(face_value, coupon_rate, years_to_maturity, market_price, settlement_period_fraction, coupons_per_year = 2) {
+  periods <- years_to_maturity * coupons_per_year
+  coupon_payment <- face_value * (coupon_rate / coupons_per_year)
+  
+  # Define the function to find the root for
+  f <- function(yield) {
+    discount_rate <- yield / coupons_per_year
+    coupon_pv <- sum(coupon_payment / ((1 + discount_rate)^(1:periods)))
+    face_value_pv <- face_value / ((1 + discount_rate)^periods)
+    accrued_interest <- coupon_payment * settlement_period_fraction
+    price <- coupon_pv + face_value_pv - accrued_interest
+    return(price - market_price)
+  }
+  
+  # Use uniroot to find the yield that sets the function to zero
+  ytm <- uniroot(f, c(0, 1))$root * coupons_per_year
+  return(ytm)
+}
 
-# Output files from R CMD build
-/*.tar.gz
+# Function to calculate effective annual yield
+effective_annual_yield <- function(ytm, coupons_per_year = 2) {
+  eay <- (1 + ytm / coupons_per_year)^coupons_per_year - 1
+  return(eay)
+}
 
-# Output files from R CMD check
-/*.Rcheck/
+# Function to decide on adding a bond to the portfolio
+evaluate_bond <- function(face_value, coupon_rate, years_to_maturity, market_price, yield, settlement_period_fraction, current_portfolio_yield) {
+  # Calculate bond price and accrued interest
+  bond_valuation <- bond_price(face_value, coupon_rate, years_to_maturity, yield, settlement_period_fraction)
+  price <- bond_valuation$price
+  accrued_interest <- bond_valuation$accrued_interest
+  
+  # Calculate YTM and EAY
+  ytm <- bond_ytm(face_value, coupon_rate, years_to_maturity, market_price, settlement_period_fraction)
+  eay <- effective_annual_yield(ytm)
+  
+  # Determine if the bond should be added to the portfolio
+  if (eay > current_portfolio_yield) {
+    decision <- "Consider adding the bond to the portfolio for diversification."
+  } else {
+    decision <- "The bond may not be worth adding to the portfolio based on current yield."
+  }
+  
+  return(list(price = price, accrued_interest = accrued_interest, ytm = ytm, eay = eay, decision = decision))
+}
 
-# RStudio files
-.Rproj.user/
+# Example usage
+face_value <- 1000
+coupon_rate <- 0.05
+years_to_maturity <- 10
+yield <- 0.04
+settlement_period_fraction <- 0.25
+market_price <- 950
+current_portfolio_yield <- 0.035
 
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
+# Evaluate the bond
+evaluation <- evaluate_bond(face_value, coupon_rate, years_to_maturity, market_price, yield, settlement_period_fraction, current_portfolio_yield)
 
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth
-
-# knitr and R markdown default cache directories
-*_cache/
-/cache/
-
-# Temporary files created by R markdown
-*.utf8.md
-*.knit.md
-
-# R Environment Variables
-.Renviron
-
-# pkgdown site
-docs/
-
-# translation temp files
-po/*~
-
-# RStudio Connect folder
-rsconnect/
+# Output the evaluation
+cat("Bond Price:", round(evaluation$price, 2), "\n")
+cat("Accrued Interest:", round(evaluation$accrued_interest, 2), "\n")
+cat("Yield to Maturity (YTM):", round(evaluation$ytm, 4), "\n")
+cat("Effective Annual Yield (EAY):", round(evaluation$eay, 4), "\n")
+cat("Decision:", evaluation$decision, "\n")
