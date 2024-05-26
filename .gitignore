@@ -1,6 +1,6 @@
 # Extended Bond Valuation and Decision-Making Model in R
 
-# Load necessary library
+
 library(stats)
 
 # Function to calculate bond price
